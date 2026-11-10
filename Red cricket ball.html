@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Red cricket ball</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;600&display=swap">
+<style>
+  :root {
+    --bg: #d9e0dc;
+    --pool: #f4f7f5;
+    --ink: #1b2822;
+    --ink-soft: #55655d;
+    --line: rgba(27, 40, 34, 0.28);
+    --btn-hover: rgba(27, 40, 34, 0.08);
+    --focus: #8f1119;
+    --ball: #8f1119;
+    color-scheme: light;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1512;
+      --pool: #22302a;
+      --ink: #e2ebe6;
+      --ink-soft: #93a49b;
+      --line: rgba(226, 235, 230, 0.3);
+      --btn-hover: rgba(226, 235, 230, 0.1);
+      --focus: #ff8d8d;
+      --ball: #c2333b;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1512;
+    --pool: #22302a;
+    --ink: #e2ebe6;
+    --ink-soft: #93a49b;
+    --line: rgba(226, 235, 230, 0.3);
+    --btn-hover: rgba(226, 235, 230, 0.1);
+    --focus: #ff8d8d;
+    --ball: #c2333b;
+    color-scheme: dark;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+    overflow: hidden;
+  }
+  .stage {
+    position: relative;
+    height: 100%;
+    background: radial-gradient(ellipse 58% 46% at 50% 60%, var(--pool), var(--bg) 100%);
+  }
+  canvas#ball {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+    cursor: grab;
+    outline: none;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  canvas#ball.ready { opacity: 1; }
+  canvas#ball.dragging { cursor: grabbing; }
+  canvas#ball:focus-visible { outline: 2px solid var(--focus); outline-offset: -6px; }
+
+  .controls {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 26rem) minmax(0, 1fr);
+    align-items: end;
+    gap: 1.5rem;
+    padding: 0 clamp(1rem, 4vw, 2.5rem) clamp(1rem, 4vh, 2.25rem);
+    pointer-events: none;
+  }
+  .caption { max-width: 22rem; }
+  .caption h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    line-height: 1.15;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+  }
+  .caption p {
+    margin: 0.25rem 0 0;
+    font-size: 1rem;
+    line-height: 1.4;
+    color: var(--ink-soft);
+  }
+  .overs { display: grid; gap: 0.3rem; pointer-events: auto; }
+  .overs-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+  .overs-head label { font-weight: 600; }
+  .overs-head output { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .overs input[type="range"] {
+    --fill: 0%;
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 1.9rem;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+    touch-action: pan-y;
+  }
+  .overs input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--ink) var(--fill), var(--line) var(--fill));
+  }
+  .overs input[type="range"]::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--ink) var(--fill), var(--line) var(--fill));
+  }
+  .overs input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 1.25rem; height: 1.25rem;
+    margin-top: calc(2px - 0.625rem);
+    border-radius: 50%;
+    background: var(--ball);
+    border: 2px solid var(--pool);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  }
+  .overs input[type="range"]::-moz-range-thumb {
+    width: 1rem; height: 1rem;
+    border-radius: 50%;
+    background: var(--ball);
+    border: 2px solid var(--pool);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  }
+  .overs input[type="range"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+  .overs input[type="range"]:disabled { opacity: 0.4; cursor: default; }
+  .level {
+    justify-self: end;
+    pointer-events: auto;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.55rem 1.1rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .level:hover { background: var(--btn-hover); }
+  .level:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  .level[disabled] { opacity: 0.4; cursor: default; }
+
+  .status {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+    max-width: 24rem;
+    padding: 0 1.25rem;
+    text-align: center;
+    font-size: 1.05rem;
+    line-height: 1.45;
+    color: var(--ink-soft);
+  }
+  .status[hidden] { display: none; }
+
+  @media (max-width: 760px) {
+    .controls { grid-template-columns: minmax(0, 1fr) auto; gap: 0.9rem 1rem; }
+    .overs { grid-column: 1 / -1; grid-row: 1; }
+    .caption h1 { font-size: 1.25rem; }
+    .caption p { font-size: 0.95rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    canvas#ball { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main class="stage">
+  <canvas id="ball" tabindex="0" role="img"
+    aria-label="3D render of a red cricket ball with its seam horizontal. Drag, or use the arrow keys, to turn it. The overs slider ages the ball."></canvas>
+  <p class="status" id="status" role="status">Stitching the seam…</p>
+  <div class="controls">
+    <div class="caption">
+      <h1>Red cricket ball</h1>
+      <p>Seam level. Drag the ball to turn it.</p>
+    </div>
+    <div class="overs">
+      <div class="overs-head">
+        <label for="overs">Overs bowled</label>
+        <output id="oversOut" for="overs">New ball</output>
+      </div>
+      <input id="overs" type="range" min="0" max="80" step="1" value="0" disabled>
+    </div>
+    <button class="level" id="level" type="button" disabled>Level the seam</button>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var canvas = document.getElementById('ball');
+  var statusEl = document.getElementById('status');
+  var levelBtn = document.getElementById('level');
+  var oversIn = document.getElementById('overs');
+  var oversOut = document.getElementById('oversOut');
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function fail(msg) {
+    statusEl.hidden = false;
+    statusEl.textContent = msg;
+  }
+
+  if (!window.THREE) {
+    fail('The 3D library did not load. Check the connection and reload the page.');
+    return;
+  }
+
+  var renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+  } catch (e) {
+    fail('This browser can’t draw 3D graphics. Open the page in a current version of Chrome, Safari, Firefox or Edge.');
+    return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.95;
+  renderer.setClearColor(0x000000, 0);
+
+  /* ---------- procedural surface maps (equirectangular) ---------- */
+
+  function hash3(x, y, z) {
+    var h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(z, 1440662683)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h = h ^ (h >>> 16);
+    return (h >>> 0) / 4294967295;
+  }
+  function vnoise(x, y, z) {
+    var xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+    var xf = x - xi, yf = y - yi, zf = z - zi;
+    var u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+    var a = hash3(xi, yi, zi), b = hash3(xi + 1, yi, zi);
+    var c = hash3(xi, yi + 1, zi), d = hash3(xi + 1, yi + 1, zi);
+    var e = hash3(xi, yi, zi + 1), f = hash3(xi + 1, yi, zi + 1);
+    var g = hash3(xi, yi + 1, zi + 1), h = hash3(xi + 1, yi + 1, zi + 1);
+    var x1 = a + (b - a) * u, x2 = c + (d - c) * u, x3 = e + (f - e) * u, x4 = g + (h - g) * u;
+    var y1 = x1 + (x2 - x1) * v, y2 = x3 + (x4 - x3) * v;
+    return y1 + (y2 - y1) * w;
+  }
+  function smooth(a, b, x) {
+    var t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  }
+  function mkCanvas(w, h) {
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    return c;
+  }
+
+  var ROWS = [46, 98, 153];      // stitch row offsets from the join, in reference px (2048-high map)
+  var STITCHES = 80;             // stitches per row around the ball
+
+  function drawStitches(W, H, s) {
+    var col = mkCanvas(W, H), cc = col.getContext('2d');
+    var aux = mkCanvas(W, H), ac = aux.getContext('2d');   // R: thread height, G: twist grooves, B: needle holes
+    ac.fillStyle = '#000';
+    ac.fillRect(0, 0, W, H);
+    ac.globalCompositeOperation = 'lighter';
+    cc.lineCap = 'round';
+    ac.lineCap = 'round';
+
+    var pitch = W / STITCHES;
+    var tw = 17 * s;
+    var seed = 7;
+    function rnd() { seed = (Math.imul(seed, 1664525) + 1013904223) | 0; return (seed >>> 0) / 4294967296; }
+
+    for (var side = -1; side <= 1; side += 2) {
+      for (var r = 0; r < ROWS.length; r++) {
+        var cy = H / 2 + side * ROWS[r] * s;
+        var phase = (r % 2) * 0.5 + (side > 0 ? 0.25 : 0);
+        var ang = side * 0.5;
+        var ca = Math.cos(ang), sa = Math.sin(ang);
+        var L = 0.41 * pitch;
+        for (var k = -1; k <= STITCHES; k++) {
+          var cx = (k + phase) * pitch;
+          var jx = (rnd() - 0.5) * 2.5 * s, jy = (rnd() - 0.5) * 2.5 * s;
+          var x0 = cx + jx - L * ca, y0 = cy + jy - L * sa;
+          var x1 = cx + jx + L * ca, y1 = cy + jy + L * sa;
+
+          // needle holes just past each end
+          ac.fillStyle = 'rgb(0,0,210)';
+          ac.beginPath(); ac.arc(x0 - ca * tw * 0.35, y0 - sa * tw * 0.35, tw * 0.5, 0, 6.2832); ac.fill();
+          ac.beginPath(); ac.arc(x1 + ca * tw * 0.35, y1 + sa * tw * 0.35, tw * 0.5, 0, 6.2832); ac.fill();
+
+          // thread colour
+          var l = 0.94 + rnd() * 0.08;
+          cc.strokeStyle = 'rgb(' + Math.round(228 * l) + ',' + Math.round(212 * l) + ',' + Math.round(190 * l) + ')';
+          cc.lineWidth = tw;
+          cc.beginPath(); cc.moveTo(x0, y0); cc.lineTo(x1, y1); cc.stroke();
+
+          // thread height: stacked strokes give a rounded profile
+          ac.strokeStyle = 'rgb(62,0,0)';
+          for (var q = 0; q < 4; q++) {
+            ac.lineWidth = tw * (1 - q * 0.23);
+            ac.beginPath(); ac.moveTo(x0, y0); ac.lineTo(x1, y1); ac.stroke();
+          }
+
+          // cord twist marks
+          var ta = ang + side * 1.05, tc = Math.cos(ta), ts = Math.sin(ta);
+          cc.strokeStyle = 'rgba(150,128,104,0.6)';
+          cc.lineWidth = 1.6 * s;
+          ac.strokeStyle = 'rgb(0,150,0)';
+          ac.lineWidth = 2.2 * s;
+          for (var t = -2; t <= 2; t++) {
+            var mx = cx + jx + ca * t * L * 0.38, my = cy + jy + sa * t * L * 0.38;
+            cc.beginPath(); cc.moveTo(mx - tc * tw * 0.42, my - ts * tw * 0.42); cc.lineTo(mx + tc * tw * 0.42, my + ts * tw * 0.42); cc.stroke();
+            ac.beginPath(); ac.moveTo(mx - tc * tw * 0.42, my - ts * tw * 0.42); ac.lineTo(mx + tc * tw * 0.42, my + ts * tw * 0.42); ac.stroke();
+          }
+        }
+      }
+    }
+    return {
+      col: cc.getImageData(0, 0, W, H).data,
+      aux: ac.getImageData(0, 0, W, H).data
+    };
+  }
+
+  function buildMaps(W) {
+    var H = W / 2, s = H / 2048;
+    var st = drawStitches(W, H, s);
+    var sc = st.col, sa = st.aux;
+
+    var hgt = new Float32Array(W * H);
+    var colImg = new ImageData(W, H), cd = colImg.data;
+    var ormImg = new ImageData(W, H), od = ormImg.data;
+
+    var cosLon = new Float32Array(W), sinLon = new Float32Array(W);
+    for (var x = 0; x < W; x++) {
+      var lon = (x + 0.5) / W * Math.PI * 2;
+      cosLon[x] = Math.cos(lon); sinLon[x] = Math.sin(lon);
+    }
+    var F1 = 105, F2 = 34, F3 = 4.5;
+
+    for (var y = 0; y < H; y++) {
+      var lat = (0.5 - (y + 0.5) / H) * Math.PI;
+      var cl = Math.cos(lat), sl = Math.sin(lat);
+      var ad = Math.abs(y + 0.5 - H / 2) / s;        // distance from the join in reference px
+      var upper = y < H / 2;
+
+      var rowH = 0;
+      for (var r = 0; r < ROWS.length; r++) {
+        var dr = (ad - ROWS[r]) / 17;
+        rowH += 0.07 * Math.exp(-dr * dr);
+      }
+      var join = Math.exp(-(ad / 4.5) * (ad / 4.5));
+      var band = 1 - smooth(176, 200, ad);
+      var edge = Math.exp(-((ad - 196) / 7) * ((ad - 196) / 7));   // crease where the seam meets the cheek
+      var quarterOn = smooth(200, 235, ad);
+      var inBand = ad < 215;
+
+      for (x = 0; x < W; x++) {
+        var i = y * W + x, j = i * 4;
+        var px = -cosLon[x] * cl, py = sl, pz = sinLon[x] * cl;
+
+        var g1 = vnoise(px * F1 + 11.3, py * F1 + 4.1, pz * F1 + 7.7);
+        var g2 = vnoise(px * F2 + 3.1, py * F2 + 9.4, pz * F2 + 1.9);
+        var g3 = vnoise(px * F3 + 5.5, py * F3 + 2.2, pz * F3 + 8.8);
+
+        var h = 0.035 * (g1 - 0.5) + 0.03 * (g2 - 0.5);
+        var shade = 1;
+
+        h += rowH + 0.05 * band - 0.3 * join - 0.07 * edge;
+        shade *= 1 - 0.55 * join - 0.18 * edge;
+
+        if (quarterOn > 0) {
+          var dq = Math.abs(upper ? px : pz);
+          var qg = Math.exp(-(dq / 0.0065) * (dq / 0.0065));
+          var qr = Math.exp(-((dq - 0.021) / 0.012) * ((dq - 0.021) / 0.012));
+          h += quarterOn * (0.035 * qr - 0.16 * qg);
+          shade *= 1 - 0.4 * quarterOn * qg;
+        }
+
+        var ta = 0, th = 0, tg = 0, hole = 0;
+        if (inBand) {
+          ta = sc[j + 3] / 255;
+          th = sa[j] / 255;
+          tg = sa[j + 1] / 255;
+          hole = (sa[j + 2] / 255) * (1 - ta);
+          h += 0.46 * th - 0.09 * tg * ta - 0.3 * hole;
+          shade *= 1 - 0.75 * hole;
+        }
+        hgt[i] = h;
+
+        // leather colour
+        var m = (0.9 + 0.14 * (g1 - 0.5) + 0.16 * (g2 - 0.5) + 0.13 * (g3 - 0.5)) * shade;
+        var lr = 138 * m, lg = 11 * m, lb = 20 * m;
+        if (ta > 0) {
+          var k = 0.9 + 0.2 * g1;
+          lr = lr + (sc[j] * k * 0.98 - lr) * ta;
+          lg = lg + (sc[j + 1] * k * 0.9 - lg) * ta;
+          lb = lb + (sc[j + 2] * k * 0.88 - lb) * ta;
+        }
+        cd[j] = lr; cd[j + 1] = lg; cd[j + 2] = lb; cd[j + 3] = 255;
+
+        // R: clearcoat amount, G: roughness
+        var cc = 1 - 0.85 * ta - 0.5 * hole;
+        var rough = 0.4 + 0.22 * (g2 - 0.5) + 0.1 * (g3 - 0.5);
+        rough = rough + (0.86 - rough) * ta;
+        od[j] = 255 * cc; od[j + 1] = 255 * rough; od[j + 2] = 0; od[j + 3] = 255;
+      }
+    }
+
+    // height -> tangent-space normal map
+    var norImg = new ImageData(W, H), nd = norImg.data;
+    var K = 17 * s;
+    for (y = 0; y < H; y++) {
+      var ym = y > 0 ? y - 1 : 0, yp = y < H - 1 ? y + 1 : H - 1;
+      var lat2 = (0.5 - (y + 0.5) / H) * Math.PI;
+      var c2 = Math.max(0.06, Math.cos(lat2));
+      var poleFade = smooth(0.02, 0.09, Math.cos(lat2));
+      var kx = K / c2 * poleFade, ky = K * poleFade;
+      for (x = 0; x < W; x++) {
+        var xm = x > 0 ? x - 1 : W - 1, xp = x < W - 1 ? x + 1 : 0;
+        var gx = (hgt[ym * W + xp] + 2 * hgt[y * W + xp] + hgt[yp * W + xp]
+                - hgt[ym * W + xm] - 2 * hgt[y * W + xm] - hgt[yp * W + xm]) * 0.125;
+        var gy = (hgt[yp * W + xm] + 2 * hgt[yp * W + x] + hgt[yp * W + xp]
+                - hgt[ym * W + xm] - 2 * hgt[ym * W + x] - hgt[ym * W + xp]) * 0.125;
+        var nx = -gx * kx, ny = gy * ky, nz = 1;
+        var inv = 1 / Math.sqrt(nx * nx + ny * ny + nz * nz);
+        var o = (y * W + x) * 4;
+        nd[o] = (nx * inv * 0.5 + 0.5) * 255;
+        nd[o + 1] = (ny * inv * 0.5 + 0.5) * 255;
+        nd[o + 2] = (nz * inv * 0.5 + 0.5) * 255;
+        nd[o + 3] = 255;
+      }
+    }
+
+    function tex(img, srgb) {
+      var c = mkCanvas(W, H);
+      c.getContext('2d').putImageData(img, 0, 0);
+      var t = new THREE.CanvasTexture(c);
+      t.wrapS = THREE.RepeatWrapping;
+      t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      if (srgb) t.encoding = THREE.sRGBEncoding;
+      return t;
+    }
+    return { map: tex(colImg, true), orm: tex(ormImg, false), normal: tex(norImg, false) };
+  }
+
+  /* ---------- wear map: R scuff field, G marks (brighter = appears earlier), B staining ---------- */
+
+  function buildWear() {
+    var W = 2048, H = 1024;
+    var mc = mkCanvas(W, H), g = mc.getContext('2d');
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, W, H);
+    g.globalCompositeOperation = 'lighten';
+    g.lineCap = 'round';
+    var seed = 91;
+    function rnd() { seed = (Math.imul(seed, 1664525) + 1013904223) | 0; return (seed >>> 0) / 4294967296; }
+    function place(draw) {
+      var sl = rnd() * 1.82 - 0.91;                    // sin(latitude), kept off the poles
+      var lat = Math.asin(sl), y = (0.5 - lat / Math.PI) * H, x = rnd() * W;
+      var v = Math.round(40 + 215 * Math.pow(rnd(), 0.65));
+      var st = 1 / Math.cos(lat);
+      for (var o = -1; o <= 1; o++) {
+        g.save();
+        g.translate(x + o * W, y);
+        g.scale(st, 1);
+        draw('rgb(0,' + v + ',0)');
+        g.restore();
+      }
+    }
+    for (var i = 0; i < 620; i++) {                    // scratches from the pitch and outfield
+      place(function (c) {
+        var a = rnd() * Math.PI, len = 8 + rnd() * rnd() * 70;
+        g.strokeStyle = c;
+        g.lineWidth = 1.1 + rnd() * 1.9;
+        g.beginPath();
+        g.moveTo(-Math.cos(a) * len / 2, -Math.sin(a) * len / 2);
+        g.quadraticCurveTo((rnd() - 0.5) * len * 0.3, (rnd() - 0.5) * len * 0.3, Math.cos(a) * len / 2, Math.sin(a) * len / 2);
+        g.stroke();
+      });
+    }
+    for (i = 0; i < 1100; i++) {                       // grit dents
+      place(function (c) {
+        g.fillStyle = c;
+        g.beginPath();
+        g.ellipse(0, 0, 1.2 + rnd() * 3.4, 1.2 + rnd() * 2.6, rnd() * 3.14, 0, 6.2832);
+        g.fill();
+      });
+    }
+    var marks = g.getImageData(0, 0, W, H).data;
+    var img = new ImageData(W, H), d = img.data;
+    for (var y = 0; y < H; y++) {
+      var lat = (0.5 - (y + 0.5) / H) * Math.PI, cl = Math.cos(lat), sl = Math.sin(lat);
+      for (var x = 0; x < W; x++) {
+        var lon = (x + 0.5) / W * Math.PI * 2;
+        var px = -Math.cos(lon) * cl, py = sl, pz = Math.sin(lon) * cl;
+        var j = (y * W + x) * 4;
+        var r = 0.5 + (vnoise(px * 3.2 + 2.7, py * 3.2 + 8.1, pz * 3.2 + 5.3) - 0.5) * 0.9
+                    + (vnoise(px * 9 + 6.1, py * 9 + 1.3, pz * 9 + 4.4) - 0.5) * 0.55
+                    + (vnoise(px * 27 + 9.9, py * 27 + 3.7, pz * 27 + 0.6) - 0.5) * 0.4
+                    + (vnoise(px * 80 + 1.1, py * 80 + 7.2, pz * 80 + 2.8) - 0.5) * 0.3;
+        var sp = (vnoise(px * 160 + 4.2, py * 160 + 6.6, pz * 160 + 9.1) - 0.8) / 0.2;
+        sp = sp > 0 ? sp * vnoise(px * 7 + 3.3, py * 7 + 5.5, pz * 7 + 1.1) : 0;
+        var b = (vnoise(px * 2.3 + 7.7, py * 2.3 + 2.9, pz * 2.3 + 6.2) * 1.5 - 0.25)
+              * (0.45 + 0.55 * vnoise(px * 13 + 0.9, py * 13 + 4.8, pz * 13 + 7.5));
+        d[j] = 255 * Math.min(1, Math.max(0, r));
+        d[j + 1] = Math.max(marks[j + 1], 255 * Math.min(1, sp));
+        d[j + 2] = 255 * Math.min(1, Math.max(0, b));
+        d[j + 3] = 255;
+      }
+    }
+    var c = mkCanvas(W, H);
+    c.getContext('2d').putImageData(img, 0, 0);
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = THREE.RepeatWrapping;
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    return t;
+  }
+
+  var ageUniform = { value: 0 };
+  var WEAR_GLSL = [
+    'vec4 wearT = texture2D(uWear, vUv);',
+    'float wT = uAge;',
+    'float wOn = smoothstep(0.0, 0.06, wT);',
+    'float wThr = 1.0 - 0.52 * wT;',
+    'float wScuff = smoothstep(wThr, wThr + 0.1, wearT.r) * wOn;',
+    'float wMark = smoothstep(1.0 - 0.68 * wT, 1.06 - 0.68 * wT, wearT.g) * wOn;',
+    'float wStain = wearT.b * wT;',
+    'float wearRough = clamp(max(wScuff * 0.85, wMark), 0.0, 1.0);',
+    'vec3 wBase = diffuseColor.rgb;',
+    'float wLum = dot(wBase, vec3(0.3, 0.59, 0.11));',
+    'wBase = mix(wBase, vec3(wLum) * vec3(1.3, 0.8, 0.7), 0.3 * wT);',
+    'wBase *= mix(1.0, 0.5, wT);',
+    'wBase *= 1.0 - 0.5 * wStain;',
+    'wBase = mix(wBase, vec3(0.15, 0.055, 0.045), wScuff * 0.5);',
+    'wBase = mix(wBase, vec3(0.21, 0.105, 0.08), wMark * 0.55);',
+    'diffuseColor.rgb = wBase;'
+  ].join('\n');
+
+  function addWear(mat, wearTex) {
+    mat.onBeforeCompile = function (shader) {
+      shader.uniforms.uWear = { value: wearTex };
+      shader.uniforms.uAge = ageUniform;
+      shader.fragmentShader = 'uniform sampler2D uWear;\nuniform float uAge;\n' + shader.fragmentShader
+        .replace('#include <map_fragment>', '#include <map_fragment>\n' + WEAR_GLSL)
+        .replace('#include <roughnessmap_fragment>',
+          '#include <roughnessmap_fragment>\nroughnessFactor = clamp(mix(roughnessFactor * mix(1.0, 1.55, wT), 0.97, wearRough), 0.0, 1.0);')
+        .replace('#include <lights_physical_fragment>',
+          '#include <lights_physical_fragment>\n#ifdef CLEARCOAT\nmaterial.clearcoat *= 1.0 - wearRough;\n#endif');
+    };
+  }
+
+  /* ---------- geometry: sphere with the seam standing proud ---------- */
+
+  function buildGeometry() {
+    var geo = new THREE.SphereGeometry(1, 288, 192);
+    var pos = geo.attributes.position, nor = geo.attributes.normal;
+    var A = 0.02, WID = 0.275, W4 = WID * WID * WID * WID;
+    for (var i = 0; i < pos.count; i++) {
+      var x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      var len = Math.sqrt(x * x + y * y + z * z) || 1;
+      x /= len; y /= len; z /= len;
+      var lat = Math.asin(Math.max(-1, Math.min(1, y)));
+      var f = Math.exp(-(lat * lat * lat * lat) / W4);
+      var r = 1 + A * f;
+      var dr = A * f * (-4 * lat * lat * lat / W4);
+      var hz = Math.sqrt(x * x + z * z);
+      var hx = hz > 1e-6 ? x / hz : 0, hzz = hz > 1e-6 ? z / hz : 0;
+      var ex = -Math.sin(lat) * hx, ey = Math.cos(lat), ez = -Math.sin(lat) * hzz;
+      var nx = r * x - dr * ex, ny = r * y - dr * ey, nz = r * z - dr * ez;
+      var nl = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+      pos.setXYZ(i, x * r, y * r, z * r);
+      nor.setXYZ(i, nx / nl, ny / nl, nz / nl);
+    }
+    pos.needsUpdate = true; nor.needsUpdate = true;
+    return geo;
+  }
+
+  /* ---------- studio lighting, baked into an environment map ---------- */
+
+  function buildEnvironment() {
+    var env = new THREE.Scene();
+    env.add(new THREE.Mesh(
+      new THREE.BoxGeometry(24, 24, 24),
+      new THREE.MeshBasicMaterial({ color: 0x1a1c1d, side: THREE.BackSide })
+    ));
+    function panel(w, h, x, y, z, power, tint) {
+      var c = new THREE.Color(tint).multiplyScalar(power);
+      var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide }));
+      m.position.set(x, y, z);
+      m.lookAt(0, 0, 0);
+      env.add(m);
+    }
+    panel(7, 7, -6, 6.5, 6, 7.5, 0xfff6ea);     // key softbox, upper left front
+    panel(9, 9, 0, 11, 0, 2.2, 0xffffff);      // overhead
+    panel(4, 7, 9, 1.5, 4, 2.2, 0xeaf2ff);     // cool fill, right
+    panel(9, 2.2, 5, 5, -9, 14, 0xffffff);     // rim strip, back right
+    panel(3, 6, -9, 0, -5, 5, 0xffffff);       // rim, back left
+    panel(22, 22, 0, -11, 0, 0.55, 0xf2ece4);  // floor bounce
+    var pm = new THREE.PMREMGenerator(renderer);
+    var rt = pm.fromScene(env, 0.02);
+    pm.dispose();
+    return rt.texture;
+  }
+
+  /* ---------- scene ---------- */
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(26, 1, 0.1, 100);
+  var ball = null;
+  var HOME = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.5);
+
+  function frameCamera() {
+    var w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    var t = Math.tan(camera.fov * Math.PI / 360);
+    var d = Math.max(1.75 / t, 1.3 / (t * camera.aspect));
+    var el = 0.1;
+    camera.position.set(0, Math.sin(el) * d, Math.cos(el) * d);
+    camera.lookAt(0, -0.12, 0);
+    camera.updateProjectionMatrix();
+    camera.userData.radiusPx = (h / 2) / (t * d);
+    requestRender();
+  }
+
+  function buildShadow() {
+    var c = mkCanvas(256, 256), g = c.getContext('2d');
+    var grad = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+    grad.addColorStop(0, 'rgba(0,0,0,0.78)');
+    grad.addColorStop(0.16, 'rgba(0,0,0,0.5)');
+    grad.addColorStop(0.5, 'rgba(0,0,0,0.13)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 256, 256);
+    var m = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.1, 3.1),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, toneMapped: false })
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(0.12, -1.0, 0.05);
+    m.renderOrder = -1;
+    return m;
+  }
+
+  /* ---------- render loop (only runs while something moves) ---------- */
+
+  var running = false, dirty = false, lastT = 0;
+  var dragging = false, lastX = 0, lastY = 0;
+  var vel = new THREE.Vector3();          // angular velocity, rad/s about world axes
+  var resetFrom = null, resetT = 0;
+  var tmpQ = new THREE.Quaternion(), axis = new THREE.Vector3();
+
+  function requestRender() {
+    dirty = true;
+    if (!running) { running = true; lastT = performance.now(); requestAnimationFrame(tick); }
+  }
+  function rotateBy(ax, ay) {            // ax about world X, ay about world Y
+    var a = Math.sqrt(ax * ax + ay * ay);
+    if (a < 1e-7 || !ball) return;
+    axis.set(ax / a, ay / a, 0);
+    tmpQ.setFromAxisAngle(axis, a);
+    ball.quaternion.premultiply(tmpQ).normalize();
+  }
+  function tick(now) {
+    var dt = Math.min(0.05, (now - lastT) / 1000);
+    lastT = now;
+    var active = false;
+
+    if (resetFrom && ball) {
+      resetT += dt / 0.7;
+      var e = resetT >= 1 ? 1 : 1 - Math.pow(1 - resetT, 3);
+      ball.quaternion.copy(resetFrom).slerp(HOME, e);
+      if (resetT >= 1) resetFrom = null; else active = true;
+      dirty = true;
+    } else if (!dragging && vel.lengthSq() > 1e-5) {
+      rotateBy(vel.x * dt, vel.y * dt);
+      vel.multiplyScalar(Math.exp(-dt * 2.6));
+      active = true; dirty = true;
+    }
+
+    if (dirty) { renderer.render(scene, camera); dirty = false; }
+    if (active || dragging) requestAnimationFrame(tick); else running = false;
+  }
+
+  /* ---------- interaction ---------- */
+
+  canvas.addEventListener('pointerdown', function (ev) {
+    if (!ball) return;
+    dragging = true; resetFrom = null; vel.set(0, 0, 0);
+    lastX = ev.clientX; lastY = ev.clientY;
+    canvas.classList.add('dragging');
+    try { canvas.setPointerCapture(ev.pointerId); } catch (e) {}
+    requestRender();
+  });
+  canvas.addEventListener('pointermove', function (ev) {
+    if (!dragging) return;
+    var R = camera.userData.radiusPx || 200;
+    var ax = (ev.clientY - lastY) / R, ay = (ev.clientX - lastX) / R;
+    lastX = ev.clientX; lastY = ev.clientY;
+    rotateBy(ax, ay);
+    vel.set(vel.x * 0.5 + ax * 30, vel.y * 0.5 + ay * 30, 0);   // smoothed, assuming ~60 moves/s
+    dirty = true;
+  });
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    canvas.classList.remove('dragging');
+    if (reduceMotion) vel.set(0, 0, 0);
+    requestRender();
+  }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('keydown', function (ev) {
+    var step = 0.12, ax = 0, ay = 0;
+    if (ev.key === 'ArrowLeft') ay = -step;
+    else if (ev.key === 'ArrowRight') ay = step;
+    else if (ev.key === 'ArrowUp') ax = -step;
+    else if (ev.key === 'ArrowDown') ax = step;
+    else return;
+    ev.preventDefault();
+    resetFrom = null; vel.set(0, 0, 0);
+    rotateBy(ax, ay);
+    requestRender();
+  });
+  levelBtn.addEventListener('click', function () {
+    if (!ball) return;
+    vel.set(0, 0, 0);
+    if (reduceMotion) { ball.quaternion.copy(HOME); resetFrom = null; }
+    else { resetFrom = ball.quaternion.clone(); resetT = 0; }
+    requestRender();
+  });
+
+  /* ---------- overs ---------- */
+
+  var ballMat = null;
+  function setOvers(n) {
+    var t = n / 80;
+    oversIn.style.setProperty('--fill', (t * 100) + '%');
+    var txt = n === 0 ? 'New ball' : n === 1 ? '1 over' : n === 80 ? '80 overs, new ball due' : n + ' overs';
+    oversOut.textContent = txt;
+    oversIn.setAttribute('aria-valuetext', txt);
+    if (!ballMat) return;
+    ageUniform.value = t;
+    var lacquer = 1 - smooth(0, 0.22, t);             // the shine goes in the first 15 or so overs
+    ballMat.clearcoat = 0.65 * (0.1 + 0.9 * lacquer);
+    ballMat.clearcoatRoughness = 0.2 + 0.3 * t;
+    ballMat.normalScale.setScalar(1 - 0.22 * t);      // seam and grain wear flatter
+    requestRender();
+  }
+  oversIn.addEventListener('input', function () { setOvers(parseInt(oversIn.value, 10) || 0); });
+
+  /* ---------- build ---------- */
+
+  function build() {
+    try {
+      var coarse = window.matchMedia('(pointer: coarse)').matches;
+      var maxTex = renderer.capabilities.maxTextureSize || 2048;
+      var W = (!coarse && maxTex >= 4096) ? 4096 : 2048;
+      var maps = buildMaps(W);
+
+      scene.environment = buildEnvironment();
+
+      var mat = new THREE.MeshPhysicalMaterial({
+        map: maps.map,
+        normalMap: maps.normal,
+        normalScale: new THREE.Vector2(1, 1),
+        roughnessMap: maps.orm,
+        roughness: 1,
+        metalness: 0,
+        clearcoat: 0.65,
+        clearcoatMap: maps.orm,
+        clearcoatRoughness: 0.2,
+        clearcoatNormalMap: maps.normal,
+        clearcoatNormalScale: new THREE.Vector2(0.45, 0.45),
+        envMapIntensity: 1.0
+      });
+      addWear(mat, buildWear());
+      ballMat = mat;
+      ball = new THREE.Mesh(buildGeometry(), mat);
+      ball.quaternion.copy(HOME);
+      scene.add(ball);
+      scene.add(buildShadow());
+
+      var key = new THREE.DirectionalLight(0xfff4e6, 0.55);
+      key.position.set(-4, 5, 5);
+      scene.add(key);
+
+      frameCamera();
+      if (window.ResizeObserver) new ResizeObserver(frameCamera).observe(canvas);
+      else window.addEventListener('resize', frameCamera);
+
+      renderer.render(scene, camera);
+      statusEl.hidden = true;
+      canvas.classList.add('ready');
+      levelBtn.disabled = false;
+      oversIn.disabled = false;
+      setOvers(parseInt(oversIn.value, 10) || 0);
+    } catch (err) {
+      console.error(err);
+      fail('The ball could not be drawn on this device. Reload the page, or try a different browser.');
+    }
+  }
+
+  // let the page paint its loading line before the heavy work starts
+  requestAnimationFrame(function () { setTimeout(build, 30); });
+})();
+</script>
+</body>
+</html>
